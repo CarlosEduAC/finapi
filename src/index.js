@@ -10,12 +10,16 @@ app.use(express.json());
 const customers = [];
 
 function verifyIfExistsAccountCPF(request, response, next) {
-  const { cpf } = request.headers;
+  const {
+    cpf
+  } = request.headers;
 
   const customer = customers.find(customer => customer.cpf === cpf);
 
-  if(!customer) {
-    return response.status(404).json({error: 'Customer not found!'});
+  if (!customer) {
+    return response.status(404).json({
+      error: 'Customer not found!'
+    });
   }
 
   request.customer = customer;
@@ -25,7 +29,7 @@ function verifyIfExistsAccountCPF(request, response, next) {
 
 function getBalance(statement) {
   const balance = statement.reduce((accumulator, operation) => {
-    if(operation.type === 'credit') {
+    if (operation.type === 'credit') {
       return accumulator + operation.amount;
     }
 
@@ -63,15 +67,54 @@ app.post('/account', (request, response) => {
   return response.status(201).json(customer);
 });
 
+app.put('/account', verifyIfExistsAccountCPF, (request, response) => {
+  const { customer } = request;
+  const { name } = request.body;
+
+  customer.name = name;
+
+  return response.status(201).json(customer);
+});
+
+app.get('/account', verifyIfExistsAccountCPF, (request, response) => {
+  const { customer } = request;
+
+  return response.json(customer);
+});
+
+app.delete('/account', verifyIfExistsAccountCPF, (request, response) => {
+  const { customer } = request;
+
+  customers.splice(customer, 1);
+
+  return response.status(204).json();
+});
+
 app.get('/statement', verifyIfExistsAccountCPF, (request, response) => {
   const { customer } = request;
 
   return response.json(customer.statement);
 });
 
+app.get('/statement/date', verifyIfExistsAccountCPF, (request, response) => {
+  const { customer } = request;
+  const { date } = request.query;
+
+  const dateFormated = new Date(date + " 00:00");
+
+  const statement = customer.statement.filter(
+    statement => statement.created_at.toDateString() === new Date(dateFormated).toDateString()
+  );
+
+  return response.json(statement);
+});
+
 app.post('/deposit', verifyIfExistsAccountCPF, (request, response) => {
   const { customer } = request;
-  const { description, amount } = request.body;
+  const {
+    description,
+    amount
+  } = request.body;
 
   const statementOperation = {
     description,
@@ -91,8 +134,10 @@ app.post('/withdraw', verifyIfExistsAccountCPF, (request, response) => {
 
   const balance = getBalance(customer.statement);
 
-  if(balance < amount) {
-    return response.status(400).json({error: 'Inssufficient funds!'});
+  if (balance < amount) {
+    return response.status(400).json({
+      error: 'Inssufficient funds!'
+    });
   }
 
   const statementOperation = {
@@ -104,6 +149,14 @@ app.post('/withdraw', verifyIfExistsAccountCPF, (request, response) => {
   customer.statement.push(statementOperation);
 
   return response.status(201).json(statementOperation);
+});
+
+app.get('/balance', verifyIfExistsAccountCPF, (request, response) => {
+  const { customer } = request;
+
+  const balance = getBalance(customer.statement);
+
+  return response.json(balance);
 });
 
 app.listen(3333);
